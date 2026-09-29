@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import BaseModel, Field, model_validator
 
 from tools.file_reader import ReadFileInput, read_file_tool
@@ -6,6 +8,8 @@ from tools.file_searcher import (
     SearchFilesInput,
     search_files_tool,
 )
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 class SearchTextInput(BaseModel):
     """搜索文本工具的结构化输入。"""
@@ -42,31 +46,36 @@ class SearchTextMatch(BaseModel):
 
 
 def search_text_tool(request: SearchTextInput) -> list[SearchTextMatch]:
-    """在指定目录的文本文件中不区分大小写地搜索关键词。"""
-    # 复用文件枚举工具；没有指定后缀时，逐个枚举受支持的文本类型。
-    suffixes = (
-        [request.file_suffix.lower()]
-        if request.file_suffix is not None
-        else sorted(SUPPORTED_SUFFIXES)
-    )
-    file_paths: set[str] = set()
-    for suffix in suffixes:
-        file_paths.update(
-            search_files_tool(
-                SearchFilesInput(
-                    search_path=request.search_path,
-                    file_suffix=suffix,
+    """在目录或单个文件中搜索关键词，并返回命中行与上下文。"""
+    target_path = (PROJECT_ROOT / request.search_path).resolve()
+
+    # 1) 如果传入的是文件，则只搜索这个文件；否则按目录搜索。
+    if request.search_path and target_path.is_file():
+        file_paths = [request.search_path]
+    else:
+        # 复用文件枚举工具；没有指定后缀时，逐个枚举受支持的文本类型。
+        suffixes = (
+            [request.file_suffix.lower()]
+            if request.file_suffix is not None
+            else sorted(SUPPORTED_SUFFIXES)
+        )
+        file_paths = []
+        for suffix in suffixes:
+            file_paths.extend(
+                search_files_tool(
+                    SearchFilesInput(
+                        search_path=request.search_path,
+                        file_suffix=suffix,
+                    )
                 )
             )
-        )
 
     # 复用文件读取工具；路径安全、文件类型和大小检查都由它负责。
     matches: list[SearchTextMatch] = []
     keyword = request.search_key_word.casefold()
-    for file_path in sorted(file_paths):
+    for file_path in sorted(set(file_paths)):
         content = read_file_tool(ReadFileInput(file_path=file_path))
 
-        # 按行查找，并保留命中行前后的上下文，便于理解句段。
         lines = content.splitlines()
         for line_index, line in enumerate(lines):
             if keyword in line.casefold():
