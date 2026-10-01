@@ -48,7 +48,10 @@ def search_files_tool(request: SearchFilesInput) -> list[str]:
     # 搜索文件并过滤后缀
     matched_files = []
     for file in resolved_path.rglob("*"):
-        if file.is_file() and (request.file_suffix is None or file.suffix.lower() == request.file_suffix.lower()):
+        if file.is_file() and (
+            file.suffix.lower() in SUPPORTED_SUFFIXES
+            if request.file_suffix is None
+            else file.suffix.lower() == request.file_suffix.lower()):
             matched_files.append(file.relative_to(PROJECT_ROOT).as_posix())
 
     return matched_files

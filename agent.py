@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from pydantic import ValidationError
 
+from tools.file_searcher import SearchFilesInput, search_files_tool
 from tools.search_text_tool import SearchTextInput, search_text_tool
 
 load_dotenv()
@@ -24,7 +25,7 @@ TOOLS = [
         "type": "function",
         "function": {
             "name": "search_local_documents",
-            "description": "在项目内指定的目录或单个文本文件中搜索关键词，返回匹配行、上下文、文件路径和行号。回答本地笔记问题时使用此工具。",
+            "description": "在项目内指定的目录或单个文本文件中搜索关键词，返回匹配行、上下文、文件路径和行号。询问笔记内容时，调用 search_local_documents。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -54,6 +55,28 @@ TOOLS = [
                     },
                 },
                 "required": ["search_path", "search_key_word"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_documents",
+            "description": "询问目录里有哪些文件时，调用 list_documents。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "search_path": {
+                        "type": "string",
+                        "description": "项目根目录下的相对目录，例如 notes",
+                    },
+                    "file_suffix": {
+                        "type": "string",
+                        "description": "可选文件后缀，例如 .md；省略时列出所有支持的文档文件。",
+                    },
+                },
+                "required": ["search_path"],
                 "additionalProperties": False,
             },
         },
@@ -94,26 +117,25 @@ def run_agent(question: str) -> None:
             return
 
         # Python 程序执行工具；模型只负责提出调用和参数，不会直接访问本地文件。
+        
         for tool_call in assistant_message.tool_calls:
-            if tool_call.function.name != "search_local_documents":
-                tool_result = json.dumps(
-                    {"error": f"未知工具：{tool_call.function.name}"},
-                    ensure_ascii=False,
-                )
+
+            tool_name = tool_call.function.name
+            arguments = json.loads(tool_call.function.arguments)
+
+            if tool_call.function.name == "search_local_documents":
+                request = SearchTextInput.model_validate(arguments)
+                matches = search_text_tool(request)
+                result = [match.model_dump() for match in matches]
+
+            elif tool_call.function.name == "list_documents":
+                request = SearchFilesInput.model_validate(arguments)
+                result = search_files_tool(request)
+                
             else:
-                try:
-                    arguments = json.loads(tool_call.function.arguments)
-                    request = SearchTextInput.model_validate(arguments)
-                    matches = search_text_tool(request)
-                    tool_result = json.dumps(
-                        [match.model_dump() for match in matches],
-                        ensure_ascii=False,
-                    )
-                except (json.JSONDecodeError, ValidationError, OSError, ValueError) as error:
-                    tool_result = json.dumps(
-                        {"error": str(error)},
-                        ensure_ascii=False,
-                    )
+                result = {"error": f"未知工具：{tool_name}"}
+
+            tool_result = json.dumps(result, ensure_ascii=False)
 
             messages.append(
                 {
