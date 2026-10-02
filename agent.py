@@ -84,19 +84,19 @@ TOOLS = [
 ]
 
 
-def run_agent(question: str) -> None:
-    """让模型决定何时搜索本地笔记，并基于搜索结果作答。"""
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "你是一个本地笔记问答助手。回答关于本地笔记的问题前，必须先调用 "
-                "search_local_documents 搜索。只根据工具返回的内容回答；如果没有找到依据，"
-                "明确说笔记中没有找到答案，不要编造。回答时引用来源文件和行号。"
-            ),
-        },
-        {"role": "user", "content": question},
-    ]
+SYSTEM_MESSAGE = {
+    "role": "system",
+    "content": (
+        "你是一个本地笔记助手。用户询问目录中有哪些文件时，调用 list_documents；"
+        "用户询问笔记内容时，调用 search_local_documents。回答内容问题时只依据工具结果，"
+        "找不到依据就明确说明，不要编造，并引用来源文件和行号。"
+    ),
+}
+
+
+def run_agent(question: str, messages: list[dict]) -> None:
+    """在当前会话中回答一个问题，并保留后续对话所需的消息历史。"""
+    messages.append({"role": "user", "content": question})
 
     # 限制往返次数，避免模型反复调用工具而不结束。
     for _ in range(5):
@@ -113,7 +113,7 @@ def run_agent(question: str) -> None:
         messages.append(assistant_message.model_dump(exclude_none=True))
 
         if not assistant_message.tool_calls:
-            print(assistant_message.content or "模型没有返回文本。")
+            print(f"智能体：{assistant_message.content or '模型没有返回文本。'}")
             return
 
         # Python 程序执行工具；模型只负责提出调用和参数，不会直接访问本地文件。
@@ -149,8 +149,20 @@ def run_agent(question: str) -> None:
 
 
 if __name__ == "__main__":
-    question = " ".join(sys.argv[1:]).strip()
-    if not question:
-        question = input("请输入关于本地笔记的问题：").strip()
-    if question:
-        run_agent(question)
+    messages = [SYSTEM_MESSAGE]
+    first_question = " ".join(sys.argv[1:]).strip()
+
+    if first_question:
+        run_agent(first_question, messages)
+
+    print("本地笔记助手已启动。输入 exit 结束。")
+    try:
+        while True:
+            question = input("你：").strip()
+            if question.casefold() == "exit":
+                print("对话结束。")
+                break
+            if question:
+                run_agent(question, messages)
+    except (EOFError, KeyboardInterrupt):
+        print("\n对话结束。")
