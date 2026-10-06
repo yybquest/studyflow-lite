@@ -14,11 +14,28 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 class SearchTextInput(BaseModel):
     """搜索文本工具的结构化输入。"""
 
-    search_path: str
-    search_key_word: str
-    file_suffix: str | None = Field(default=None)
-    max_results: int = Field(default=50, ge=1, le=500)
-    context_lines: int = Field(default=2, ge=0, le=10)
+    search_path: str = Field(
+        description="项目根目录下的相对目录或单个文件路径，例如 notes 或 notes/day-1.md。"
+    )
+    search_key_word: str = Field(
+        description="要查找的关键词或短语；搜索时不区分大小写。"
+    )
+    file_suffix: str | None = Field(
+        default=None,
+        description="可选的文件后缀过滤器，例如 .md；省略时搜索所有支持的文本文件。",
+    )
+    max_results: int = Field(
+        default=50,
+        ge=1,
+        le=500,
+        description="最多返回的匹配条数，范围为 1 到 500，默认 50。",
+    )
+    context_lines: int = Field(
+        default=2,
+        ge=0,
+        le=10,
+        description="每条命中前后附带的上下文行数，范围为 0 到 10，默认 2。",
+    )
 
     @model_validator(mode="after")
     def validate_search_path(self) -> "SearchTextInput":
@@ -38,11 +55,11 @@ class SearchTextInput(BaseModel):
 class SearchTextMatch(BaseModel):
     """单条文本搜索结果，包含来源、命中行和周边上下文。"""
 
-    file_path: str
-    line_number: int
-    text: str
-    context_start_line: int
-    context: str
+    file_path: str = Field(description="匹配内容所在文件的项目相对路径。")
+    line_number: int = Field(description="关键词命中行的行号，从 1 开始。")
+    text: str = Field(description="包含关键词的完整文本行。")
+    context_start_line: int = Field(description="上下文片段起始行号，从 1 开始。")
+    context: str = Field(description="命中行及其前后上下文组成的多行文本。")
 
 
 def search_text_tool(request: SearchTextInput) -> list[SearchTextMatch]:

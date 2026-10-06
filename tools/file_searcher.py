@@ -14,8 +14,13 @@ BLOCKED_DIRECTORY_NAMES = {".git", ".venv", "venv", "__pycache__"}
 class SearchFilesInput(BaseModel):
     """搜索文件工具的结构化输入。"""
 
-    search_path: str                                    # 相对于项目根目录的搜索路径；不允许绝对路径
-    file_suffix: str | None = Field(default=None)       # 可选的文件后缀过滤器；不填表示搜索所有支持的文本文件
+    search_path: str = Field(
+        description="项目根目录下的相对文件或目录路径，不允许绝对路径，例如 notes。"
+    )
+    file_suffix: str | None = Field(
+        default=None,
+        description="可选的文件后缀过滤器，例如 .md；省略时搜索所有支持的文本文件。",
+    )
 
     @model_validator(mode="after")
     def validate_search_path(self) -> "SearchFilesInput":

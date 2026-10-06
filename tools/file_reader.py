@@ -19,9 +19,19 @@ BLOCKED_DIRECTORY_NAMES = {".git", ".venv", "venv", "__pycache__"}
 class ReadFileInput(BaseModel):
 	"""读取文件工具的结构化输入。"""
 
-	file_path: str                                          # 相对于项目根目录的文件路径；不允许绝对路径
-	start_line: int | None = Field(default=None,ge=1)       # 可选的起始行号，从 1 开始；不填表示从文件开头读取
-	end_line: int | None = Field(default=None,ge=1)         # 可选的结束行号，包含该行；不填表示读取到文件末尾
+	file_path: str = Field(
+		description="项目根目录下的相对文本文件路径，不允许绝对路径，例如 notes/day-1.md。"
+	)
+	start_line: int | None = Field(
+		default=None,
+		ge=1,
+		description="可选的起始行号，从 1 开始；省略时从文件开头读取。",
+	)
+	end_line: int | None = Field(
+		default=None,
+		ge=1,
+		description="可选的结束行号，包含该行；省略时读取到文件末尾。",
+	)
 
 	@model_validator(mode="after")
 	def validate_line_range(self) -> "ReadFileInput":
