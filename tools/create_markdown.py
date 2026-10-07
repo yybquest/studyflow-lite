@@ -23,6 +23,7 @@ class CreateMarkdownInput(BaseModel):
 			raise ValueError("file_path 不能为空")
 
 		requested_path = Path(self.file_path)
+		
 		if requested_path.is_absolute():
 			raise ValueError("请提供项目根目录下的相对路径")
 		if requested_path.suffix.lower() != ".md":
@@ -32,6 +33,7 @@ class CreateMarkdownInput(BaseModel):
 
 def create_markdown_tool(request: CreateMarkdownInput) -> dict[str, str | int]:
 	"""在项目内创建 UTF-8 Markdown 文件；若文件已存在则拒绝覆盖。"""
+	
 	content_size = len(request.content.encode("utf-8"))
 	if content_size > MAX_FILE_SIZE_BYTES:
 		raise ValueError(
@@ -40,6 +42,7 @@ def create_markdown_tool(request: CreateMarkdownInput) -> dict[str, str | int]:
 
 	requested_path = Path(request.file_path)
 	resolved_path = (PROJECT_ROOT / requested_path).resolve()
+	
 	try:
 		resolved_path.relative_to(PROJECT_ROOT)
 	except ValueError as error:

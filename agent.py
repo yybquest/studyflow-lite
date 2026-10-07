@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from tools.file_reader import ReadFileInput, read_file_tool
 from tools.file_searcher import SearchFilesInput, search_files_tool
 from tools.search_text import SearchTextInput, search_text_tool
+from tools.create_markdown import CreateMarkdownInput, create_markdown_tool
 
 load_dotenv()
 
@@ -118,6 +119,30 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_markdown",
+            "description": "在项目内创建 UTF-8 Markdown 文件；若文件已存在则拒绝覆盖。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": (
+                            "项目根目录下的相对文件路径，必须以 .md 结尾，例如 notes/summary.md。"
+                        ),
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "要写入 Markdown 文件的 UTF-8 文本内容。",
+                    },
+                },
+                "required": ["file_path", "content"],
+                "additionalProperties": False,
+            },
+        }
+    }
 ]
 
 
@@ -128,6 +153,7 @@ SYSTEM_MESSAGE = {
         "用户明确要求查找关键词、短语、概念或定位相关段落时，调用 search_local_documents；"
         "用户要求读取、展示、总结、概述、翻译或分析某个文档整体内容时，先调用 read_document，"
         "再依据读取结果完成任务。不要用关键词搜索结果代替全文阅读。"
+        "用户要求创建 Markdown 文件时，调用 create_markdown。"
         "回答文档内容问题时只依据工具结果；找不到依据就明确说明，不要编造，并引用来源文件和行号。"
     ),
 }
@@ -175,6 +201,9 @@ def run_agent(question: str, messages: list[dict]) -> None:
                 request = ReadFileInput.model_validate(arguments)
                 result = read_file_tool(request)
                 
+            elif tool_call.function.name == "create_markdown":
+                request = CreateMarkdownInput.model_validate(arguments)
+                result = create_markdown_tool(request)
             else:
                 result = {"error": f"未知工具：{tool_name}"}
 
