@@ -2,9 +2,13 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, model_validator
 
-
+# 工具默认只能读取项目根目录中的文件，避免意外访问项目外的路径。
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+# 限制单次最大写入字节上限
 MAX_FILE_SIZE_BYTES = 1_000_000
+
+# 这些目录通常包含依赖、版本控制数据或缓存，含有敏感信息，不应作为创建文件的目录。
 BLOCKED_DIRECTORY_NAMES = {".git", ".venv", "venv", "__pycache__"}
 
 
