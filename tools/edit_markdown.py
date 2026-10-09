@@ -1,5 +1,4 @@
 from pathlib import Path
-from difflib import unified_diff
 from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
@@ -42,11 +41,6 @@ class EditMarkdownInput(BaseModel):
         ge=1,
         description="按范围修改时的结束行号，包含该行。",
     )
-    preview_only: bool = Field(
-        default=True,
-        description="是否仅展示变更预览而不写入文件；默认 True，通常先预览后再确认。",
-    )
-
     @model_validator(mode="after")
     def validate_action(self) -> "EditMarkdownInput":
         """确保动作和参数满足编辑语义，并保证目标路径是安全的 Markdown 文件。"""
@@ -92,24 +86,8 @@ def _resolve_project_file(file_path: str) -> Path:
     return resolved_path
 
 
-def _build_diff(old_text: str, new_text: str) -> str:
-    """生成精简的统一 diff，用于展示修改前后差异。"""
-    old_lines = old_text.splitlines()
-    new_lines = new_text.splitlines()
-    diff = list(
-        unified_diff(
-            old_lines,
-            new_lines,
-            fromfile="original",
-            tofile="modified",
-            lineterm="",
-        )
-    )
-    return "\n".join(diff)
-
-
-def edit_markdown_tool(request: EditMarkdownInput) -> dict[str, str | int | bool | list[str]]:
-    """安全修改项目内的 Markdown 文件，默认先返回预览 diff 再决定是否落盘。"""
+def edit_markdown_tool(request: EditMarkdownInput) -> dict[str, str | int]:
+    """直接修改项目内的 Markdown 文件，并返回简短执行结果。"""
     resolved_path = _resolve_project_file(request.file_path)
 
     if not resolved_path.exists():
@@ -119,7 +97,6 @@ def edit_markdown_tool(request: EditMarkdownInput) -> dict[str, str | int | bool
         raise ValueError(f"目标不是文件：{request.file_path}")
 
     content = resolved_path.read_text(encoding="utf-8")
-    original_content = content
     lines = content.splitlines(keepends=True)
 
     if request.action == "insert":
@@ -176,23 +153,10 @@ def edit_markdown_tool(request: EditMarkdownInput) -> dict[str, str | int | bool
             f"修改后的内容超过 {MAX_FILE_SIZE_BYTES} 字节的写入上限：{request.file_path}"
         )
 
-    diff_text = _build_diff(original_content, new_content)
-    preview = {
-        "status": "preview" if request.preview_only else "updated",
-        "file_path": resolved_path.relative_to(PROJECT_ROOT).as_posix(),
-        "action": request.action,
-        "preview_only": request.preview_only,
-        "diff": diff_text,
-        "before": original_content,
-        "after": new_content,
-    }
-
-    if request.preview_only:
-        return preview
-
     resolved_path.write_text(new_content, encoding="utf-8", newline="")
     return {
-        **preview,
         "status": "updated",
+        "file_path": resolved_path.relative_to(PROJECT_ROOT).as_posix(),
+        "action": request.action,
         "bytes_written": len(new_content.encode("utf-8")),
     }

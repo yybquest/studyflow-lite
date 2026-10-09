@@ -2,7 +2,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, model_validator
 
-from tools.file_reader import ReadFileInput, read_file_tool
+from tools.file_reader import ReadFileInput, read_file_content
 from tools.file_searcher import (
     SUPPORTED_SUFFIXES,
     SearchFilesInput,
@@ -91,7 +91,7 @@ def search_text_tool(request: SearchTextInput) -> list[SearchTextMatch]:
     matches: list[SearchTextMatch] = []
     keyword = request.search_key_word.casefold()
     for file_path in sorted(set(file_paths)):
-        content = read_file_tool(ReadFileInput(file_path=file_path))
+        content = read_file_content(ReadFileInput(file_path=file_path))
 
         lines = content.splitlines()
         for line_index, line in enumerate(lines):

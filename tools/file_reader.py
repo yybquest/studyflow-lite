@@ -47,26 +47,22 @@ class ReadFileInput(BaseModel):
 		return self
 
 
-def read_file_tool(request: ReadFileInput) -> str:
-	"""读取项目内的 UTF-8 文本文件，可选按 1 起始的行号范围截取。"""
+def read_file_content(request: ReadFileInput) -> str:
+	"""读取项目内文本文件的原始内容（不含行号），供内部工具复用。"""
 	requested_path = Path(request.file_path)
 
-	# 不接受绝对路径，工具调用方只能指定项目内的相对路径。
 	if requested_path.is_absolute():
 		raise ValueError("请提供项目根目录下的相对路径")
 
-	# resolve 会处理 .. 和符号链接；relative_to 用来确认最终路径仍在项目内。
 	resolved_path = (PROJECT_ROOT / requested_path).resolve()
 	try:
 		resolved_path.relative_to(PROJECT_ROOT)
 	except ValueError as error:
 		raise ValueError("不允许读取项目目录以外的文件") from error
 
-	# 阻止读取依赖、缓存和版本控制目录中的文件。
 	if BLOCKED_DIRECTORY_NAMES.intersection(resolved_path.parts):
 		raise ValueError("不允许读取依赖、缓存或版本控制目录中的文件")
 
-	# 用扩展名限制文件类型，避免把二进制文件当作文本读取。
 	if resolved_path.suffix.lower() not in SUPPORTED_SUFFIXES:
 		raise ValueError(
 			f"不支持的文件类型：{resolved_path.suffix or '无扩展名'}；"
@@ -76,17 +72,25 @@ def read_file_tool(request: ReadFileInput) -> str:
 	if not resolved_path.is_file():
 		raise FileNotFoundError(f"文件不存在：{request.file_path}")
 
-	# 先检查大小，再读取内容，避免意外加载过大的文件。
 	if resolved_path.stat().st_size > MAX_FILE_SIZE_BYTES:
 		raise ValueError(
 			f"文件超过 {MAX_FILE_SIZE_BYTES} 字节的读取上限：{request.file_path}"
 		)
 
-	# 显式使用 UTF-8，确保不同 Windows 区域设置下的读取行为一致。
 	content = resolved_path.read_text(encoding="utf-8")
 	lines = content.splitlines(keepends=True)
 
-	# Python 切片的结束位置不包含该位置；这里把用户的闭区间行号转成切片。
 	start_index = (request.start_line or 1) - 1
 	end_index = request.end_line if request.end_line is not None else len(lines)
 	return "".join(lines[start_index:end_index])
+
+
+def read_file_tool(request: ReadFileInput) -> str:
+	"""读取文档并给每行加上行号（形如 `行号 | 内容`），方便模型引用与编辑定位。"""
+	content = read_file_content(request)
+	first_line = request.start_line or 1
+	numbered = [
+		f"{first_line + index:>4} | {line}"
+		for index, line in enumerate(content.splitlines())
+	]
+	return "\n".join(numbered)
