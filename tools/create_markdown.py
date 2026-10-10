@@ -18,7 +18,12 @@ class CreateMarkdownInput(BaseModel):
 	file_path: str = Field(
 		description="项目根目录下的相对文件路径，必须以 .md 结尾，例如 notes/summary.md。"
 	)
-	content: str = Field(description="要写入 Markdown 文件的 UTF-8 文本内容。")
+	content: str = Field(description=(
+							"要写入 Markdown 文件的 UTF-8 文本内容。"
+							"必须输出规范的 Markdown 结构：标题或加粗短语单独占一行，"
+							"段落之间要换行，不要把多段内容连成一行。"
+						)
+					)
 
 	@model_validator(mode="after")
 	def validate_file_path(self) -> "CreateMarkdownInput":

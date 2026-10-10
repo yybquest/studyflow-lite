@@ -18,7 +18,7 @@ class SearchTextInput(BaseModel):
         description="项目根目录下的相对目录或单个文件路径，例如 notes 或 notes/day-1.md。"
     )
     search_key_word: str = Field(
-        description="要查找的关键词或短语；搜索时不区分大小写。"
+        description="用户明确要求查找的关键词或短语，也可以从问题中提取关键词；但不要把整句问题当作关键词。搜索时不区分大小写。"
     )
     file_suffix: str | None = Field(
         default=None,
@@ -28,13 +28,13 @@ class SearchTextInput(BaseModel):
         default=5,
         ge=1,
         le=10,
-        description="最多返回的匹配条数，范围为 1 到 10，默认 5。",
+        description="最多返回多少条匹配结果；建议设小，避免结果过多占用上下文。",
     )
     context_lines: int = Field(
         default=2,
         ge=0,
         le=10,
-        description="每条命中前后附带的上下文行数，范围为 0 到 10，默认 2。",
+        description="每条命中前后附带的上下文行数；建议设小，避免结果过多占用上下文。",
     )
 
     @model_validator(mode="after")

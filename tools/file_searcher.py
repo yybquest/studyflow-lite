@@ -19,7 +19,7 @@ class SearchFilesInput(BaseModel):
     )
     file_suffix: str | None = Field(
         default=None,
-        description="可选的文件后缀过滤器，例如 .md；省略时搜索所有支持的文本文件。",
+        description="可选的文件后缀，例如 .md；省略时搜索所有支持的文本文件。",
     )
 
     @model_validator(mode="after")

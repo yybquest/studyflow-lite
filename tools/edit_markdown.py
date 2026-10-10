@@ -20,11 +20,19 @@ class EditMarkdownInput(BaseModel):
     )
     content: str | None = Field(
         default=None,
-        description="插入或替换时使用的新内容；删除操作时可忽略。",
+        description=(
+            "插入或替换时使用的新内容；删除操作时可忽略。"
+            "必须输出规范的 Markdown 结构：加粗标题单独占一行，"
+            "标题之后换行再写正文；正文的不同段落之间也要换行，"
+            "严禁把多段内容连成一行。"
+        ),
     )
     target_text: str | None = Field(
         default=None,
-        description="替换或删除前，目标原文片段。对于替换必须提供；删除时可提供唯一原文片段或行范围。",
+        description=(
+            "替换或删除前，目标原文片段。对于替换必须提供；删除时可选。"
+            "替换或删除时如果目标文本重复，应带上唯一的上下文或改用行号范围；如果目标文本唯一，则可直接提供。"
+        ),
     )
     line_number: int | None = Field(
         default=None,
@@ -34,7 +42,7 @@ class EditMarkdownInput(BaseModel):
     start_line: int | None = Field(
         default=None,
         ge=1,
-        description="按范围修改时的起始行号，从 1 开始。",
+        description="按范围修改时的起始行号。",
     )
     end_line: int | None = Field(
         default=None,
