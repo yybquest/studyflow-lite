@@ -25,10 +25,10 @@ class SearchTextInput(BaseModel):
         description="可选的文件后缀过滤器，例如 .md；省略时搜索所有支持的文本文件。",
     )
     max_results: int = Field(
-        default=50,
+        default=5,
         ge=1,
-        le=500,
-        description="最多返回的匹配条数，范围为 1 到 500，默认 50。",
+        le=10,
+        description="最多返回的匹配条数，范围为 1 到 10，默认 5。",
     )
     context_lines: int = Field(
         default=2,
