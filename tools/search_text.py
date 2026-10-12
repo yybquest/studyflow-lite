@@ -3,13 +3,8 @@ from pathlib import Path
 from pydantic import BaseModel, Field, model_validator
 
 from tools.file_reader import ReadFileInput, read_file_content
-from tools.file_searcher import (
-    SUPPORTED_SUFFIXES,
-    SearchFilesInput,
-    search_files_tool,
-)
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from tools.file_searcher import SearchFilesInput,search_files_tool
+from tools.config import PROJECT_ROOT, TEXT_SUFFIXES
 
 class SearchTextInput(BaseModel):
     """搜索文本工具的结构化输入。"""
@@ -46,7 +41,7 @@ class SearchTextInput(BaseModel):
             raise ValueError("search_key_word 不能为空")
         if (
             self.file_suffix is not None
-            and self.file_suffix.lower() not in SUPPORTED_SUFFIXES
+            and self.file_suffix.lower() not in TEXT_SUFFIXES
         ):
             raise ValueError(f"不支持的文件后缀: {self.file_suffix}")
         return self
@@ -74,7 +69,7 @@ def search_text_tool(request: SearchTextInput) -> list[SearchTextMatch]:
         suffixes = (
             [request.file_suffix.lower()]
             if request.file_suffix is not None
-            else sorted(SUPPORTED_SUFFIXES)
+            else sorted(TEXT_SUFFIXES)
         )
         file_paths = []
         for suffix in suffixes:
