@@ -18,6 +18,7 @@ from tools.file_searcher import SearchFilesInput, search_files_tool
 from tools.search_text import SearchTextInput, search_text_tool
 from tools.create_markdown import CreateMarkdownInput, create_markdown_tool
 from tools.edit_markdown import EditMarkdownInput, edit_markdown_tool
+from tools.pdf_reader import ReadPdfInput, read_pdf_tool
 from tool_schema import to_function_schema
 
 load_dotenv()
@@ -45,7 +46,9 @@ TOOL_SPECS = {
         search_text_tool,
     ),
     "list_documents": (
-        "询问目录里有哪些文件时，调用 list_documents。",
+        "询问目录里有哪些文件时，调用 list_documents。"
+        "只给出文件名时应先用该工具找到文件路径，确认文件名，再进行下一步操作。"
+        "列出的 .pdf 文件需要用 read_pdf 处理，其他文本文件用 read_document 读取。",
         SearchFilesInput,
         search_files_tool,
     ),
@@ -68,6 +71,13 @@ TOOL_SPECS = {
         EditMarkdownInput,
         edit_markdown_tool,
     ),
+    "read_pdf":(
+        "读取项目内 PDF 论文的文本内容，可按页码范围读取。"
+        "用户要求阅读、总结、翻译或分析 PDF 论文时使用；"
+        "长论文应分多次按页码范围读取，严禁一次读完整篇。",
+        ReadPdfInput,
+        read_pdf_tool,
+    ),
 }
 
 TOOLS = [
@@ -87,6 +97,7 @@ SYSTEM_MESSAGE = {
         "你是一个本地笔记助手。用户询问目录中有哪些文件时，调用 list_documents。"
         "用户明确要求查找关键词、短语、概念或定位相关段落时，调用 search_local_documents。"
         "用户要求读取、展示、总结、概述、翻译或分析某个文档整体内容时，先调用 read_document。"
+        "用户要求阅读 PDF 论文时，调用 read_pdf，长论文按页分段读取。"
         "再依据读取结果完成任务。不要用关键词搜索结果代替全文阅读。"
         "用户要求创建 Markdown 文件时，调用 create_markdown。"
         "用户明确要求编辑 Markdown 文件时，调用 edit_markdown；工具成功返回后，文件已直接修改。"

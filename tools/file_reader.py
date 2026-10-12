@@ -1,20 +1,7 @@
 from pathlib import Path
 
 from pydantic import BaseModel, Field, model_validator
-
-
-# 工具默认只能读取项目根目录中的文件，避免意外访问项目外的路径。
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-# 只允许读取常见文本格式；PDF、Word 等格式需要专门的解析库。
-SUPPORTED_SUFFIXES = {".txt", ".md", ".py", ".json", ".csv", ".yaml", ".yml"}
-
-# 限制单次读取大小，避免误读大型文件占用过多内存或上下文。
-MAX_FILE_SIZE_BYTES = 1_000_000
-
-# 这些目录通常包含依赖、版本控制数据或缓存，不应作为文档来源。
-BLOCKED_DIRECTORY_NAMES = {".git", ".venv", "venv", "__pycache__"}
-
+from tools.config import PROJECT_ROOT, TEXT_SUFFIXES, BLOCKED_DIRECTORY_NAMES, MAX_FILE_SIZE_BYTES
 
 class ReadFileInput(BaseModel):
 	"""读取文件工具的结构化输入。"""
@@ -63,10 +50,10 @@ def read_file_content(request: ReadFileInput) -> str:
 	if BLOCKED_DIRECTORY_NAMES.intersection(resolved_path.parts):
 		raise ValueError("不允许读取依赖、缓存或版本控制目录中的文件")
 
-	if resolved_path.suffix.lower() not in SUPPORTED_SUFFIXES:
+	if resolved_path.suffix.lower() not in TEXT_SUFFIXES:
 		raise ValueError(
 			f"不支持的文件类型：{resolved_path.suffix or '无扩展名'}；"
-			f"支持类型：{', '.join(sorted(SUPPORTED_SUFFIXES))}"
+			f"支持类型：{', '.join(sorted(TEXT_SUFFIXES))}"
 		)
 
 	if not resolved_path.is_file():
