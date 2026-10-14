@@ -62,7 +62,14 @@ def _extract_pdf_text(resolved_path: Path) -> tuple[str, int]:
     document = pymupdf.open(str(resolved_path))
     try:
         total_pages = document.page_count
-        text = pymupdf4llm.to_markdown(document)
+        chunks = pymupdf4llm.to_markdown(document, page_chunks=True)
+
+        parts: list[str] = []
+        for chunk in chunks:
+            # 新版字段是 page_number，已经是 1-based
+            page_number = chunk["metadata"]["page_number"]
+            parts.append(f"<!-- page {page_number} -->\n\n{chunk['text']}")
+        text = "\n\n".join(parts)
         return text, total_pages
     finally:
         document.close()

@@ -14,3 +14,8 @@ BLOCKED_DIRECTORY_NAMES = {".git", ".venv", "venv", "__pycache__", "tests", ".py
 
 # 单次读取/写入的字节上限
 MAX_FILE_SIZE_BYTES = 1_000_000
+
+# 分块（chunker）相关参数
+MAX_CHUNK_CHARS = 1200  # 单块字符上限；中文为主时建议降到约 500，避免超过 embedding 的 512 token 上限
+OVERLAP_CHARS = 150     # 超长分块时相邻块的重叠字符数
+MIN_CHUNK_CHARS = 40    # 低于此长度的块视为噪音丢弃
