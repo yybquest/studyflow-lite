@@ -19,3 +19,9 @@ MAX_FILE_SIZE_BYTES = 1_000_000
 MAX_CHUNK_CHARS = 1200  # 单块字符上限；中文为主时建议降到约 500，避免超过 embedding 的 512 token 上限
 OVERLAP_CHARS = 150     # 超长分块时相邻块的重叠字符数
 MIN_CHUNK_CHARS = 40    # 低于此长度的块视为噪音丢弃
+
+# 嵌入与索引（RAG）相关
+EMBEDDING_MODEL = "BAAI/bge-small-zh-v1.5"   # 中英双语、512 维、离线免费
+INDEX_DIR = PROJECT_ROOT / "knowledge"        # 索引持久化目录
+CORPUS_DIRS = ["article", "notes"]            # 语料目录（别用 "."，会混入源码）
+TOP_K = 5                                     # 检索默认返回条数
