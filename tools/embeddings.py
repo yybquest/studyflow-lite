@@ -1,9 +1,9 @@
 import json
 from pathlib import Path
 import os
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
 
 import numpy as np
-os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
 from sentence_transformers import SentenceTransformer
 
 from tools.chunker import Chunk, chunk_directory
