@@ -18,7 +18,6 @@ from tools.file_searcher import SearchFilesInput, search_files_tool
 from tools.search_text import SearchTextInput, search_text_tool
 from tools.create_markdown import CreateMarkdownInput, create_markdown_tool
 from tools.edit_markdown import EditMarkdownInput, edit_markdown_tool
-from tools.pdf_to_text import PdfToTextInput, pdf_to_text_tool
 from tools.search_knowledge import SearchKnowledgeInput, search_knowledge_tool
 from tool_schema import to_function_schema
 
@@ -56,7 +55,7 @@ TOOL_SPECS = {
     "list_documents": (
         "询问目录里有哪些文件时，调用 list_documents。"
         "只给出文件名时应先用该工具找到文件路径，确认文件名，再进行下一步操作。"
-        "列出的 .pdf 文件需要用 read_pdf 处理，其他文本文件用 read_document 读取。",
+        "列出的文本文件用 read_document 读取。",
         SearchFilesInput,
         search_files_tool,
     ),
@@ -79,13 +78,6 @@ TOOL_SPECS = {
         EditMarkdownInput,
         edit_markdown_tool,
     ),
-    "pdf_to_text":(
-        "把项目内的 PDF 论文抽取为结构化的纯文本，并保存为 .md 文件。"
-        "之后可以用 read_document 读取、或 search_keyword 检索该 .md 文件，"
-        "不要直接读取 PDF 原文。",
-        PdfToTextInput,
-        pdf_to_text_tool,
-    ),
 }
 
 TOOLS = [
@@ -107,7 +99,6 @@ SYSTEM_MESSAGE = {
         "用户提出需要结合笔记或论文内容来回答的开放问题时，调用 search_knowledge 做语义检索；"
         "复杂问题要拆成多个子问题、用不同关键词多次调用 search_knowledge，检索到相关块后如有必要再用 read_document 读完整章节。"
         "用户要求读取、展示、总结、概述、翻译或分析某个文档整体内容时，先调用 read_document。"
-        "用户要求阅读 PDF 论文时，先调用 pdf_to_text 把 PDF 抽成文本，再进行下一步处理。"
         "再依据读取结果完成任务。不要用关键词搜索结果代替全文阅读。"
         "用户要求创建 Markdown 文件时，调用 create_markdown。"
         "用户明确要求编辑 Markdown 文件时，调用 edit_markdown；工具成功返回后，文件已直接修改。"
