@@ -7,7 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TEXT_SUFFIXES = {".txt", ".md", ".py", ".json", ".csv", ".yaml", ".yml"}
 
 # 文件列表/文件搜索里「可见」的后缀
-LISTABLE_SUFFIXES = TEXT_SUFFIXES | {".pdf"}
+LISTABLE_SUFFIXES = TEXT_SUFFIXES
 
 # 不允许作为文档来源或操作目标的目录
 BLOCKED_DIRECTORY_NAMES = {".git", ".venv", "venv", "__pycache__", "tests", ".pytest_cache"}
@@ -25,3 +25,5 @@ EMBEDDING_MODEL = "BAAI/bge-small-zh-v1.5"   # 中英双语、512 维、离线�
 INDEX_DIR = PROJECT_ROOT / "knowledge"        # 索引持久化目录
 CORPUS_DIRS = ["article", "notes"]            # 语料目录（别用 "."，会混入源码）
 TOP_K = 5                                     # 检索默认返回条数
+
+GLOSSARY_PATH = PROJECT_ROOT / "glossary.md"   # 全局术语表，跨论文累积
