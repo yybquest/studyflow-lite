@@ -1,7 +1,7 @@
 import json
-from pathlib import Path
 import os
 os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+os.environ.setdefault("HF_HUB_OFFLINE", "1") 
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
@@ -27,11 +27,14 @@ def embed_texts(texts: list[str]) -> np.ndarray:
     )
     return np.asarray(vectors, dtype="float32")
 
-def build_index(corpus_dirs: list[str] | None = None) -> dict:
+def build_dense_index(corpus_dirs: list[str] | None = None) -> dict:
     corpus_dirs = corpus_dirs or CORPUS_DIRS
     chunks: list[Chunk] = []
     for directory in corpus_dirs:
         chunks.extend(chunk_directory(directory))   # 复用你写好的 chunker
+
+    if not chunks:
+        raise ValueError("语料为空：CORPUS_DIRS 下没有可切的文本文件")
 
     texts = [c.text for c in chunks]
     vectors = embed_texts(texts)
@@ -44,18 +47,18 @@ def build_index(corpus_dirs: list[str] | None = None) -> dict:
     )
     return {"chunks": len(chunks), "dim": vectors.shape[1]}
 
-def load_index() -> tuple[list[dict], np.ndarray]:
+def load_dense_index() -> tuple[list[dict], np.ndarray]:
     chunks = json.loads((INDEX_DIR / "chunks.json").read_text(encoding="utf-8"))
     vectors = np.load(INDEX_DIR / "vectors.npy")
     return chunks, vectors
 
 
 def search(query: str, top_k: int = TOP_K) -> list[dict]:
-    chunks, vectors = load_index()
+    chunks, vectors = load_dense_index()
     q = embed_texts([query])[0]          # 查询也归一化
     scores = vectors @ q                 # 归一化后点积 = 余弦
     order = np.argsort(scores)[::-1][:top_k]
     return [
-        {**chunks[i], "score": float(scores[i])}
+        {**chunks[i], "id": int(i), "score": float(scores[i])}
         for i in order
     ]

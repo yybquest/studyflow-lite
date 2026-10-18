@@ -27,7 +27,7 @@ studyflow-lite/
 ├── .env                  # API key 与模型名（勿提交 git）
 ├── article/              # 论文 PDF 与抽取出的 .md（语料）
 ├── notes/                # 学习笔记（语料）
-├── knowledge/            # 索引：chunks.json + vectors.npy（index.py 生成）
+├── knowledge/            # 索引：chunks.json + vectors.npy + sparse.json（index.py 生成）
 └── tools/                # 工具模块
     ├── config.py         # 集中配置（语料目录、索引路径、模型名等）
     ├── file_reader.py    # 读取文本文件
@@ -36,8 +36,7 @@ studyflow-lite/
     ├── create_markdown.py / edit_markdown.py
     ├── pdf_to_text.py    # PDF → markdown
     ├── chunker.py        # 结构感知分块
-    ├── embeddings.py     # 嵌入 + 索引 + 语义检索
-    ├── search_knowledge.py  # 语义检索工具
+    ├── dense_search.py     # 嵌入 + 索引 + 语义检索
     └── summarizer.py     # 论文总结流水线
 ```
 
@@ -106,7 +105,7 @@ studyflow-lite/
 ```
 
 - 作用：多轮问答，agent 自主决定调用哪些工具（语义检索 / 关键词 / 读文件 / 写 Markdown 等）；输入 `exit` 退出；
-- 前提：先跑过 `index.py`，否则 `search_knowledge` 会提示「索引尚未构建」。
+- 前提：先跑过 `index.py`，否则 `hybrid_search` 会提示「索引尚未构建」。
 
 ## 典型工作流
 

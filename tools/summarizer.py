@@ -3,7 +3,7 @@ import re
 from tools.chunker import Chunk,chunk_text
 from pathlib import Path
 from tools.file_reader import ReadFileInput, read_file_content
-#from tools.embeddings import embed_texts 
+#from tools.dense_search import embed_texts 
 from tools.config import PROJECT_ROOT, GLOSSARY_PATH
 
 SECTION_MAX_CHARS = 8000

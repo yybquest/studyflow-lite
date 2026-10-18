@@ -27,3 +27,7 @@ CORPUS_DIRS = ["article", "notes"]            # 语料目录（别用 "."，会�
 TOP_K = 5                                     # 检索默认返回条数
 
 GLOSSARY_PATH = PROJECT_ROOT / "glossary.md"   # 全局术语表，跨论文累积
+
+# 混合检索（hybrid）相关
+RRF_K = 60              # RRF 常数：越大越接近「纯平均名次」，业界常用 60
+RRF_CANDIDATES = 20     # 融合前每路先取多少个候选块（要大于 TOP_K，给融合留空间）
