@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import os
-import re
 from pathlib import Path
 
 from pydantic import BaseModel
 
 from tools.config import (
     BLOCKED_DIRECTORY_NAMES,
+    HEADING_RE,
     MAX_CHUNK_CHARS,
     MIN_CHUNK_CHARS,
+    NUMBER_PREFIX_RE,
     OVERLAP_CHARS,
     PROJECT_ROOT,
+    SECTION_SKIP_TITLES,
     TEXT_SUFFIXES,
 )
 from tools.file_reader import ReadFileInput, read_file_content
@@ -25,22 +27,6 @@ class Chunk(BaseModel):
     heading: str = ""
     start_line: int
     end_line: int
-
-
-# 结构感知——ATX 标题：# 到 ###### 开头，后面跟至少一个空白。
-_HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.*)$")
-
-# 噪音过滤——命中这些标题的整节会被跳过（参考文献/致谢等低价值内容）。
-_SKIP_TITLES = {
-    "references",
-    "reference",
-    "bibliography",
-    "acknowledgments",
-    "acknowledgements",
-    "参考文献",
-    "参考资料",
-    "致谢",
-}
 
 
 def _section_len(section: list[tuple[int, str]]) -> int:
@@ -63,8 +49,8 @@ def _is_skip_title(heading: str) -> bool:
     """噪音过滤——判断标题（面包屑末段）是否属于要跳过的低价值节。"""
     last = heading.split(" > ")[-1].strip().lower()
     # 去掉 "5." "3.2" 之类的前缀编号后再比较
-    last = re.sub(r"^\d+(\.\d+)*[\.\)、\s]*", "", last).strip()
-    return last in _SKIP_TITLES
+    last = NUMBER_PREFIX_RE.sub("", last).strip()
+    return last in SECTION_SKIP_TITLES
 
 
 def _split_long(section: list[tuple[int, str]], heading: str, source_file: str) -> list[Chunk]:
@@ -144,7 +130,7 @@ def chunk_text(text: str, source_file: str) -> list[Chunk]:
 
         # 结构感知：命中标题 → 收尾上一节、开新节
         if not in_fence:
-            match = _HEADING_RE.match(raw)
+            match = HEADING_RE.match(raw)
             if match:
                 level = len(match.group(1))
                 title = match.group(2).strip().rstrip("#").strip("*`_").strip()

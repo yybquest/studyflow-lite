@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 # 项目根目录：config.py 位于 tools/ 下，上溯一级即项目根
@@ -31,3 +32,15 @@ GLOSSARY_PATH = PROJECT_ROOT / "glossary.md"   # 全局术语表，跨论文累�
 # 混合检索（hybrid）相关
 RRF_K = 60              # RRF 常数：越大越接近「纯平均名次」，业界常用 60
 RRF_CANDIDATES = 20     # 融合前每路先取多少个候选块（要大于 TOP_K，给融合留空间）
+
+# 阅读会话（精读模式）相关
+FALLBACK_SECTION_CHARS = 2000   # 无标题论文的兜底分节长度（字符/节）
+
+# Markdown 解析共享常量（chunker 与 section_parser 共用）
+HEADING_RE = re.compile(r"^(#{1,6})[ \t]+(.*)$")           # ATX 标题
+NUMBER_PREFIX_RE = re.compile(r"^\d+(\.\d+)*[\.\)、\s]*")   # 「3.」「3.2 」等前缀编号
+SECTION_SKIP_TITLES = {  # 命中这些标题的整节会被跳过（参考文献/致谢等低价值内容）
+    "references", "reference", "bibliography",
+    "acknowledgments", "acknowledgements",
+    "参考文献", "参考资料", "致谢",
+}
