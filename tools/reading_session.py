@@ -64,19 +64,16 @@ def save_state(state: ReadingState) -> Path:
     return path
 
 
-_ACTIONS = [
-    ("开始学", "study"),
-    ("学", "study"),
-    ("下一节", "next"),
-    ("存笔记", "save"),
-    ("复习", "review"),
-]
+# 「复习」允许紧跟概念（中文里常不写空格），这些分隔符会被剥掉
+_REVIEW_SEPARATORS = "：:，,、 "
 
 
 def parse_command(raw: str) -> tuple[str, str]:
     """把用户输入解析成 (action, payload)。
 
     命中固定命令返回对应动作；否则视为针对当前节的提问（question）。
+    - 「复习」允许紧跟概念（如「复习工具库这个概念」），也接受「复习：X」「复习一下 X」；
+    - 「学 / 开始学」必须带空格，避免把「学习…」误判成命令。
     """
     text = raw.strip()
     if not text:
@@ -84,12 +81,25 @@ def parse_command(raw: str) -> tuple[str, str]:
     if text.casefold() in {"exit", "退出", "quit"}:
         return "exit", ""
 
-    # 长前缀优先，避免「开始学」被「学」抢先匹配
-    for prefix, action in sorted(_ACTIONS, key=lambda item: -len(item[0])):
+    if text == "复习":
+        return "review", ""
+    if text.startswith("复习"):
+        payload = text[len("复习"):].strip().lstrip(_REVIEW_SEPARATORS).strip()
+        if payload.startswith("一下"):
+            payload = payload[len("一下"):].strip()
+        return "review", payload
+
+    # 「学 / 开始学」必须带空格，避免把「学习…」误判成命令
+    for prefix, action in (("开始学", "study"), ("学", "study")):
         if text == prefix:
             return action, ""
         if text.startswith(prefix + " ") or text.startswith(prefix + "　"):
             return action, text[len(prefix):].strip()
+
+    if text == "下一节":
+        return "next", ""
+    if text == "存笔记":
+        return "save", ""
 
     return "question", text
 
@@ -148,3 +158,31 @@ def build_messages(
 
 def explain_turn(section: Section) -> str:
     return f"请讲解当前节【{section.title}】（第 {section.start_line}-{section.end_line} 行）。"
+
+
+def _hit_location(hit: dict) -> str:
+    """把检索块的位置拼成可读的来源描述。"""
+    source = hit.get("source_file") or "未知来源"
+    heading = hit.get("heading") or ""
+    start = hit.get("start_line")
+    end = hit.get("end_line")
+    location = source
+    if heading:
+        location += f" / {heading}"
+    if start is not None and end is not None:
+        location += f"（第 {start}-{end} 行）"
+    return location
+
+
+def build_review_prompt(concept: str, hits: list[dict]) -> str:
+    """把检索到的块组装成「复习某个概念」的提示词。"""
+    blocks = [
+        f"[{index}] 来源：{_hit_location(hit)}\n{hit.get('text', '').strip()}"
+        for index, hit in enumerate(hits, start=1)
+    ]
+    return (
+        f"请复习/解释概念【{concept}】。\n"
+        "下面是从本地知识库检索到的相关片段。只依据这些片段作答，"
+        "标注引用的来源编号；若片段不足以解释，就明确说「知识库里的片段不足以解释这个概念」。\n\n"
+        + "\n\n".join(blocks)
+    )

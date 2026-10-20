@@ -1,25 +1,38 @@
 # StudyFlow Lite
 
-一个基于本地文档的 **Agentic RAG 学习助手**：读论文、建索引、语义问答、自动总结并维护术语表。
+一个基于本地文档的 **Agentic RAG 学习助手**：读论文、建索引、混合检索问答、引导式精读，并自动维护术语表。
 
 最初是为 Kaggle「5-Day AI Agents Intensive Course」的学习笔记而建，现已逐步扩展成一个完整的 RAG 项目。
 
 ## 功能
 
-- **文档问答（Agentic RAG）**：agent 自主决定查什么、查几轮，基于本地知识库语义检索后带出处回答；
-- **论文总结**：一条命令把论文整理成结构化笔记（一句话总结 / 研究问题 / 方法 / 贡献 / 关键技术）+ 自动维护全局术语表；
-- **PDF 转文本**：把 PDF 论文抽成结构化的 Markdown；
-- **语义检索**：bge 嵌入 + 余弦相似度，支持跨表述的「意思相近」检索；
-- **知识库索引**：本地 numpy 索引（chunks.json + vectors.npy），构建一次、反复查询；
-- **文件工具**：读取、列表、关键词搜索、创建/编辑 Markdown。
+- **论文精讲陪读**：按 `##` 分节逐节讲解，讲完一节停下等你发话；你随时针对当前内容提问；退出后保留进度，下次可续读（`reader.py`）；
+- **论文总结（存笔记）**：精读中随时说「存笔记」，生成结构化笔记（一句话总结 / 研究问题 / 方法 / 贡献 / 关键技术），并把术语去重后写入全局术语表；
+- **概念复习**：精读中说「复习 <概念>」，从本地知识库混合检索后重新讲解；结果不写回阅读上下文，避免打断连续性；
+- **混合检索**：dense（bge 嵌入）+ sparse（TF-IDF 词法）+ RRF 名次融合，兼顾「语义相近」与「精确术语 / 跨表述」；
+- **文档问答（Agentic RAG）**：agent 自主决定查什么、查几轮，基于混合检索带出处回答；
+- **PDF 转文本**：把 PDF 论文抽成结构化 Markdown（支持双栏、表格与标题）；
+- **知识库索引**：本地 numpy 索引（chunks.json + vectors.npy + sparse.json），构建一次、反复查询；
+- **文件工具**：读取、列表、关键词搜索、创建 / 编辑 Markdown。
+
+## 入口对照
+
+| 入口 | 角色 | 什么时候用 |
+|---|---|---|
+| `pdf2md.py` | 摄取 | 把 PDF 论文转成 Markdown |
+| `index.py` | 索引 | 语料变了，供检索 / 复习 / agent 问答使用 |
+| `reader.py` | **精读（workflow）** | 坐下来逐节读一篇、随问随答、存笔记 |
+| `Agentic RAG.py` | **研究（agent）** | 跨论文、多轮检索、自由问答 |
+
+> `reader.py` 是「工作流」：流程由固定命令控制，模型只负责讲解与回答。`Agentic RAG.py` 是「智能体」：由模型自主决定调用哪些工具。二者互补，不是重复。
 
 ## 目录结构
 
 ```text
 studyflow-lite/
-├── agent.py              # 交互问答入口（Agentic RAG）
+├── reader.py             # 引导式精读入口（学 / 下一节 / 存笔记 / 复习 / exit）
+├── Agentic RAG.py        # 交互问答入口（Agentic RAG）
 ├── pdf2md.py             # PDF → Markdown 入口（离线脚本）
-├── summarize.py          # 论文总结入口（离线流水线）
 ├── index.py              # 构建知识库索引入口
 ├── tool_schema.py        # 由 pydantic 自动生成 function schema
 ├── glossary.md           # 全局术语表（跨论文累积）
@@ -27,7 +40,7 @@ studyflow-lite/
 ├── .env                  # API key 与模型名（勿提交 git）
 ├── article/              # 论文 PDF 与抽取出的 .md（语料）
 ├── notes/                # 学习笔记（语料）
-├── knowledge/            # 索引：chunks.json + vectors.npy + sparse.json（index.py 生成）
+├── knowledge/            # 索引 + 阅读进度（index.py / reader.py 生成）
 └── tools/                # 工具模块
     ├── config.py         # 集中配置（语料目录、索引路径、模型名等）
     ├── file_reader.py    # 读取文本文件
@@ -36,8 +49,10 @@ studyflow-lite/
     ├── create_markdown.py / edit_markdown.py
     ├── pdf_to_text.py    # PDF → markdown
     ├── chunker.py        # 结构感知分块
-    ├── dense_search.py     # 嵌入 + 索引 + 语义检索
-    └── summarizer.py     # 论文总结流水线
+    ├── dense_search.py / sparse_search.py / hybrid_search.py  # 混合检索
+    ├── section_parser.py # 按 ## 分节（精读导航）
+    ├── reading_session.py# 精读状态 + 命令 + prompt 装配
+    └── summarizer.py     # 总结生成 + 落盘（由「存笔记」调用）
 ```
 
 ## 环境准备
@@ -72,17 +87,18 @@ studyflow-lite/
 ```
 
 - 作用：把 PDF 抽成结构化 Markdown，生成同名 `.md`；
-- 之后用 `summarize.py` 总结、或 `index.py` 建索引。
+- 之后用 `reader.py` 精读、或 `index.py` 建索引。
 
-### 2. `summarize.py` —— 总结论文（离线流水线）
+### 2. `reader.py` —— 引导式精读
 
 ```powershell
-.venv\Scripts\python.exe summarize.py "article/Role-Specialized Tool Agents.md"
+.venv\Scripts\python.exe reader.py "article/Role-Specialized Tool Agents.md"
 ```
 
-- 作用：map-reduce 生成结构化笔记，写到 `同目录/<原名>-summary.md`；术语提取后，**通用术语**进 `glossary.md`、**本文专属名词**只留在 summary；
-- 前提：先把 PDF 转成 .md（用上面的 pdf2md.py）；
-- 注意：会调用多次 LLM，**消耗真实 API 额度**，建议先拿短文档试跑。
+- 作用：按 `##` 分节逐节讲解；你随时提问；「下一节」推进；「存笔记」生成 `-summary.md` 并更新 `glossary.md`；「复习 <概念>」走知识库混合检索（结果不写回阅读上下文）；`exit` 退出并保存进度，下次可续读；
+- 命令：`学 <论文>` / `下一节` / `存笔记` / `复习 <概念>` / `exit`；
+- 前提：先把 PDF 转成 `.md`（用上面的 pdf2md.py）；「复习」需要先跑过 `index.py`；
+- 注意：会把整篇论文放进上下文，且「存笔记」会多次调用模型，**消耗真实 API 额度**。
 
 ### 3. `index.py` —— 构建知识库索引
 
@@ -94,17 +110,19 @@ studyflow-lite/
 - 何时跑：**语料变了就重跑**（新增论文/笔记后），属全量重建、会覆盖旧索引；
 - 想加新语料目录：在 `tools/config.py` 的 `CORPUS_DIRS` 里加目录名即可。
 
-### 4. `agent.py` —— 交互问答（Agentic RAG）
+### 4. `Agentic RAG.py` —— 交互问答（Agentic RAG）
+
+> 文件名含空格，命令里需要加引号。
 
 ```powershell
 # 交互式
-.venv\Scripts\python.exe agent.py
+.venv\Scripts\python.exe "Agentic RAG.py"
 
 # 直接带问题启动
-.venv\Scripts\python.exe agent.py "什么是 RAG"
+.venv\Scripts\python.exe "Agentic RAG.py" "什么是 RAG"
 ```
 
-- 作用：多轮问答，agent 自主决定调用哪些工具（语义检索 / 关键词 / 读文件 / 写 Markdown 等）；输入 `exit` 退出；
+- 作用：多轮问答，agent 自主决定调用哪些工具（混合检索 / 关键词 / 读文件 / 写 Markdown 等）；输入 `exit` 退出；
 - 前提：先跑过 `index.py`，否则 `hybrid_search` 会提示「索引尚未构建」。
 
 ## 典型工作流
@@ -112,14 +130,14 @@ studyflow-lite/
 ```text
 ① 放论文        article/某论文.pdf
 ② PDF 转文本     python pdf2md.py article/某论文.pdf
-               （生成同名 .md）
-③ （可选）总结   python summarize.py "article/某论文.md"
-               → 生成 -summary.md，更新 glossary.md
-④ 建索引        python index.py
-⑤ 问答          python agent.py "这篇论文讲了什么"
+                （生成同名 .md）
+③ 精读 + 存笔记  python reader.py "article/某论文.md"
+                → 逐节讲解 → 存笔记生成 -summary.md、更新 glossary.md
+④ 建索引        python index.py        （供检索 / 复习 / agent 用）
+⑤ 研究 / 问答    python "Agentic RAG.py" "这篇论文讲了什么"
 ```
 
-> PDF 转换是独立脚本（不走 agent）；agent 只负责最后一步的交互问答。
+> PDF 转换是独立脚本；精读走 `reader.py`；跨论文研究走 `Agentic RAG.py`。
 
 ## 个人感想
 

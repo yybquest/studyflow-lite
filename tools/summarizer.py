@@ -5,6 +5,8 @@ from pathlib import Path
 from tools.file_reader import ReadFileInput, read_file_content
 #from tools.dense_search import embed_texts 
 from tools.config import PROJECT_ROOT, GLOSSARY_PATH
+from tools.create_markdown import CreateMarkdownInput, create_markdown_tool
+from tools.edit_markdown import EditMarkdownInput, edit_markdown_tool
 
 SECTION_MAX_CHARS = 8000
 SHORT_DOC_CHARS = 20000
@@ -159,7 +161,9 @@ def _semantic_dedup_terms(terms_md: str, existing_text: str, threshold: float = 
 
 """
 
-def summarize_paper(client, md_path: str) -> dict:
+
+def generate_summary(client, md_path: str) -> dict:
+    """生成总结与术语（不写文件）。返回可直接落盘的数据。"""
     content = read_file_content(ReadFileInput(file_path=md_path))   # 复用安全读取
     chunks = chunk_text(content, md_path)                          # 复用切块
 
@@ -178,24 +182,67 @@ def summarize_paper(client, md_path: str) -> dict:
     if specific_terms:
         terms_section += "\n\n### 本文专属名词\n\n" + specific_terms
 
-    # 写 summary 文件：同目录 <原名>-summary.md
     p = Path(md_path)
-    out_path = PROJECT_ROOT / p.parent / f"{p.stem}-summary.md"
-    out_path.write_text(
-        summary_md + "\n\n## 术语表\n\n" + terms_section,
-        encoding="utf-8",
-    )
-
-    # glossary：只 append 通用术语（去重后）
-    existing_keys = _existing_term_keys()
-    new_terms = _dedup_terms(general_terms, existing_keys)
-    if new_terms:
-        with GLOSSARY_PATH.open("a", encoding="utf-8") as f:
-            f.write("\n\n" + new_terms)
-
+    note_path = (p.parent / f"{p.stem}-summary.md").as_posix()
     return {
-        "summary": out_path.relative_to(PROJECT_ROOT).as_posix(),
-        "glossary": GLOSSARY_PATH.relative_to(PROJECT_ROOT).as_posix(),
-        "new_terms": len(new_terms.splitlines()) if new_terms else 0,
-        "skipped_terms": len(general_terms.splitlines()) - (len(new_terms.splitlines()) if new_terms else 0),
+        "summary_md": summary_md,
+        "terms_section": terms_section,
+        "general_terms": general_terms,
+        "specific_terms": specific_terms,
+        "note_path": note_path,
     }
+
+
+def _write_note(note_path: str, body: str) -> None:
+    """用 md 工具写笔记：不存在则创建，已存在则整篇替换。"""
+    if (PROJECT_ROOT / note_path).exists():
+        old = read_file_content(ReadFileInput(file_path=note_path))
+        edit_markdown_tool(EditMarkdownInput(
+            file_path=note_path,
+            action="replace",
+            target_text=old,
+            content=body,
+        ))
+    else:
+        create_markdown_tool(CreateMarkdownInput(file_path=note_path, content=body))
+
+
+def _append_glossary(new_terms: str) -> None:
+    """把新术语追加到 glossary；不存在则创建。"""
+    if (PROJECT_ROOT / "glossary.md").exists():
+        edit_markdown_tool(EditMarkdownInput(
+            file_path="glossary.md",
+            action="insert",
+            content="\n\n" + new_terms,
+        ))
+    else:
+        create_markdown_tool(CreateMarkdownInput(
+            file_path="glossary.md",
+            content=new_terms + "\n",
+        ))
+
+
+def save_summary(generated: dict) -> dict:
+    """把 generate_summary 的结果落盘：笔记 + 术语表（复用 md 工具）。"""
+    note_path = generated["note_path"]
+    body = generated["summary_md"] + "\n\n## 术语表\n\n" + generated["terms_section"]
+    _write_note(note_path, body)
+
+    existing_keys = _existing_term_keys()
+    new_terms = _dedup_terms(generated["general_terms"], existing_keys)
+    if new_terms:
+        _append_glossary(new_terms)
+
+    new_count = len(new_terms.splitlines()) if new_terms else 0
+    skipped = len(generated["general_terms"].splitlines()) - new_count
+    return {
+        "note": note_path,
+        "glossary": "glossary.md",
+        "new_terms": new_count,
+        "skipped_terms": skipped,
+    }
+
+
+def summarize_paper(client, md_path: str) -> dict:
+    """一步完成：生成总结并落盘（供脚本或 M5 复用）。"""
+    return save_summary(generate_summary(client, md_path))
