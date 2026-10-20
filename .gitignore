@@ -7,3 +7,6 @@ tests/
 notes-not-in-index/
 docs/
 knowledge/reading-state/
+
+article/*.pdf
+article/*.epub
